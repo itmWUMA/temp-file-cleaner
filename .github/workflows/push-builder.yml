@@ -1,0 +1,51 @@
+# GitHub Actions 工作流：用于在push时自动构建跨平台的可执行文件
+
+name: Push hook build
+
+# 触发条件：当触发push到主干时，进行构建任务
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+    # 任务名称
+    name: Build on ${{ matrix.os }}
+    # 使用矩阵策略，在多个操作系统上并行运行
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          # 为 Windows 系统定义特殊变量
+          - os: windows-latest
+            EXECUTABLE_NAME: tempcleaner.exe
+          # 为 Linux 系统定义特殊变量
+          - os: ubuntu-latest
+            EXECUTABLE_NAME: tempcleaner
+          # 为 macOS 系统定义特殊变量
+          - os: macos-latest
+            EXECUTABLE_NAME: tempcleaner
+
+    steps:
+      # 步骤1: 检出仓库代码
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # 步骤2: 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # 您可以指定需要的 Python 版本
+
+      # 步骤3: 安装依赖库和 PyInstaller
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # 步骤4: 使用 PyInstaller 打包
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --name ${{ matrix.EXECUTABLE_NAME }} run.py
