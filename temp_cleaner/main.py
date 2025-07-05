@@ -2,6 +2,7 @@
 Main entry point for the TempCleaner command-line interface (CLI).
 """
 import argparse
+import sys
 from pathlib import Path
 
 from .engine import CleaningEngine, load_config
@@ -34,12 +35,25 @@ def main():
     args = parser.parse_args()
     
     try:
-        if not args.config.is_file():
-            print(f"Error: Configuration file not found at '{args.config}'")
+        # Determine the base path of the executable to resolve relative paths
+        if getattr(sys, 'frozen', False):
+            # If running in a PyInstaller bundle
+            base_path = Path(sys.executable).parent
+        else:
+            # If running as a normal script
+            base_path = Path(__file__).parent.parent
+
+        # Resolve the config path against the base path
+        config_path = args.config
+        if not config_path.is_absolute():
+            config_path = base_path / config_path
+
+        if not config_path.is_file():
+            print(f"Error: Configuration file not found at '{config_path}'")
             return
 
-        print(f"Loading configuration from: {args.config}")
-        config = load_config(args.config)
+        print(f"Loading configuration from: {config_path}")
+        config = load_config(config_path)
         engine = CleaningEngine(config, dry_run=args.dry_run)
 
         if args.command == "run":
