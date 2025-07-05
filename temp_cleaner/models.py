@@ -2,35 +2,23 @@
 Defines the data structures for jobs, filters, and actions.
 """
 import dataclasses
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-@dataclasses.dataclass(frozen=True)
-class ActionConfig:
-    """
-    Represents an action configuration from the YAML file.
-    For P0, it's just a string like 'delete' or 'trash'.
-    """
-    type: str
-
-@dataclasses.dataclass(frozen=True)
-class FilterConfig:
-    """
-    Represents a filter configuration from the YAML file.
-    e.g., {'pattern': '**/*.log'} or {'age': 'older_than: "30d"'}
-    """
-    type: str
-    args: Dict[str, Any]
+from .actions import Action
+from .filters import Filter
 
 
 @dataclasses.dataclass
 class Job:
-    """Represents a single cleanup job."""
+    """
+    Represents a single cleanup job, holding strategy objects for filters and actions.
+    """
     name: str
     paths: List[str]
-    filters: List[FilterConfig]
-    actions: List[ActionConfig]
-    # Triggers are parsed but not used by the engine in P0
-    triggers: List[Dict[str, Any]]
+    pattern: Optional[str]  # The primary pattern filter is treated specially
+    filters: List[Filter]   # List of secondary filter objects (e.g., AgeFilter)
+    actions: List[Action]   # List of action objects (e.g., TrashAction)
+    triggers: List[Dict[str, Any]] # Raw trigger config, not used in P0
 
 @dataclasses.dataclass
 class Config:

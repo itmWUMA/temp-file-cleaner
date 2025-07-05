@@ -23,11 +23,12 @@ jobs:
       # - '$TEMP/my-temp-folder' # 环境变量示例 (需要系统已设置)
     filters:
       - pattern: '**/*.zip'
-      - age: 'older_than: "30d"'
+      # - age:
+      #     older_than: "30d"
     # P0 阶段不支持 size 过滤器
     # - size: 'larger_than: "500MB"'
     actions:
-      - trash
+      - trash: {} # Actions now need to be a dictionary, even if empty
     triggers:
       - manual
 
@@ -38,8 +39,9 @@ jobs:
     filters:
       # 同时匹配 Rust (target) 和 Java/Maven (target) 的构建目录
       - pattern: '**/target'
-      - age: 'older_than: "7d"'
+      - age:
+          older_than: "7d"
     actions:
-      - delete
+      - delete: {} # Actions now need to be a dictionary, even if empty
     triggers:
       - manual

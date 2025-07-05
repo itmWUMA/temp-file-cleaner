@@ -4,38 +4,14 @@ and executes actions.
 """
 import yaml
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List
 
 from . import models
 from . import filesystem
-from . import filters
-
-def _parse_filter_config(filter_list: List[Dict[str, Any]]) -> List[models.FilterConfig]:
-    """Parses raw filter dictionaries into FilterConfig objects."""
-    parsed_filters = []
-    for f in filter_list:
-        filter_type = list(f.keys())[0]
-        filter_value = f[filter_type]
-        
-        args = {}
-        if isinstance(filter_value, str):
-            # Handles simple cases like 'pattern: "*.log"' or 'age: older_than: "30d"'
-            # For age, we need to parse the inner string
-            if ':' in filter_value:
-                key, val = [x.strip() for x in filter_value.split(':', 1)]
-                args[key] = val.strip('"\'')
-            else:
-                # for pattern
-                args['pattern'] = filter_value
-
-        else:
-            args = filter_value
-
-        parsed_filters.append(models.FilterConfig(type=filter_type, args=args))
-    return parsed_filters
+from . import registry
 
 def load_config(config_path: Path) -> models.Config:
-    """Loads and validates the YAML configuration file."""
+    """Loads, parses, and transforms the YAML configuration into structured objects."""
     with open(config_path, 'r', encoding='utf-8') as f:
         raw_config = yaml.safe_load(f)
 
@@ -44,11 +20,23 @@ def load_config(config_path: Path) -> models.Config:
 
     job_list = []
     for name, details in raw_config['jobs'].items():
+        # Use the registry to create action and filter objects
+        raw_actions = details.get('actions', [])
+        actions = [registry.create_action(a) for a in raw_actions]
+
+        # Separate pattern filter from other filters
+        raw_filters = details.get('filters', [])
+        pattern_config = next((f for f in raw_filters if 'pattern' in f), None)
+        other_filters_config = [f for f in raw_filters if 'pattern' not in f]
+        
+        filters = [registry.create_filter(f) for f in other_filters_config]
+
         job = models.Job(
             name=name,
             paths=details.get('paths', []),
-            filters=_parse_filter_config(details.get('filters', [])),
-            actions=[models.ActionConfig(type=a) for a in details.get('actions', [])],
+            pattern=pattern_config['pattern'] if pattern_config else None,
+            filters=filters,
+            actions=actions,
             triggers=details.get('triggers', [])
         )
         job_list.append(job)
@@ -57,7 +45,7 @@ def load_config(config_path: Path) -> models.Config:
 
 
 class CleaningEngine:
-    """The main engine to execute cleaning jobs."""
+    """The main engine to execute cleaning jobs using strategy objects."""
 
     def __init__(self, config: models.Config, dry_run: bool = False):
         self.config = config
@@ -78,21 +66,20 @@ class CleaningEngine:
         """Runs one specific cleaning job."""
         print(f"\n--- Running Job: {job.name} ---")
 
-        # 1. Find all files based on paths and pattern filters
+        # 1. Find all files based on paths and the primary pattern filter.
         initial_files = self._find_initial_files(job)
         if not initial_files:
             print("No files found matching path/pattern criteria.")
             return
 
-        # 2. Apply remaining filters (e.g., age)
-        other_filters = [f for f in job.filters if f.type != 'pattern']
-        files_to_clean = filters.apply_filters(initial_files, other_filters)
+        # 2. Apply all secondary filters (strategy objects).
+        files_to_clean = self._apply_secondary_filters(initial_files, job.filters)
 
         if not files_to_clean:
             print("All initial files were filtered out. Nothing to clean.")
             return
 
-        # 3. Execute actions on the filtered files
+        # 3. Execute actions on the filtered files.
         print(f"Found {len(files_to_clean)} item(s) to clean:")
         for file_path in files_to_clean:
             self._execute_actions(file_path, job.actions)
@@ -100,29 +87,30 @@ class CleaningEngine:
         print(f"--- Job {job.name} Finished ---")
 
     def _find_initial_files(self, job: models.Job) -> List[Path]:
-        """Finds files based on `paths` and `pattern` filters."""
-        all_files = []
-        # There should be exactly one pattern filter per job as per PRD logic
-        pattern_filter = next((f for f in job.filters if f.type == 'pattern'), None)
-        if not pattern_filter:
+        """Finds files based on `paths` and the primary `pattern` filter."""
+        if not job.pattern:
             print(f"Warning: Job '{job.name}' has no pattern filter. It will not match any files.")
             return []
         
-        pattern = pattern_filter.args.get('pattern', '')
-
+        all_files = set()
         for path_str in job.paths:
             base_path = filesystem.resolve_path(path_str)
-            print(f"Scanning in '{base_path}' for pattern '{pattern}'...")
-            all_files.extend(filesystem.find_files(base_path, pattern))
+            print(f"Scanning in '{base_path}' for pattern '{job.pattern}'...")
+            found = filesystem.find_files(base_path, job.pattern)
+            all_files.update(found)
         
-        return list(set(all_files)) # Return unique paths
+        return list(all_files)
 
-    def _execute_actions(self, file_path: Path, actions: List[models.ActionConfig]):
-        """Executes the defined actions on a single file."""
+    def _apply_secondary_filters(self, files: List[Path], filters: List[models.Filter]) -> List[Path]:
+        """Applies a list of filter objects to a list of files."""
+        filtered_files = files
+        for f in filters:
+            # The engine doesn't know what kind of filter it is, it just calls `matches`.
+            filtered_files = [path for path in filtered_files if f.matches(path)]
+        return filtered_files
+
+    def _execute_actions(self, file_path: Path, actions: List[models.Action]):
+        """Executes the defined action objects on a single file."""
         for action in actions:
-            if action.type == 'trash':
-                filesystem.trash_item(file_path, self.dry_run)
-            elif action.type == 'delete':
-                filesystem.delete_item(file_path, self.dry_run)
-            else:
-                print(f"Warning: Unknown action type '{action.type}' for file {file_path}")
+            # The engine doesn't know what kind of action it is, it just calls `execute`.
+            action.execute(file_path, self.dry_run)
