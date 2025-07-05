@@ -7,6 +7,8 @@
 # ============================================================================
 
 TASK_NAME="TempCleaner"
+FREQUENCY_IN_MINUTES=15
+
 # Get the absolute path to the directory containing this script.
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 EXECUTABLE_PATH="$SCRIPT_DIR/tempcleaner" # The name of the PyInstaller executable on Linux/macOS
@@ -25,29 +27,40 @@ fi
 
 echo "Task Name: $TASK_NAME"
 echo "Executable to run: $EXECUTABLE_PATH check-schedule"
+echo "Frequency set to every $FREQUENCY_IN_MINUTES minutes."
 
-# Cron job that runs at the beginning of every hour.
-# The comment '# TempCleaner Job' is added to make it easy to identify and remove.
-CRON_JOB="0 * * * * '$EXECUTABLE_PATH' check-schedule # $TASK_NAME"
+# --- 1. Create Scheduled Task (for 'schedule' triggers) ---
+echo "Creating scheduled task..."
+SCHEDULE_JOB="*/$FREQUENCY_IN_MINUTES * * * * '$EXECUTABLE_PATH' check-schedule # $TASK_NAME - Scheduled"
 
-# Check if the cron job already exists to avoid duplicates.
-# We use a unique comment to identify our job.
-(crontab -l 2>/dev/null | grep -Fq "# $TASK_NAME")
+# --- 2. Create Startup Task (for 'on_startup' triggers) ---
+echo "Creating startup task..."
+STARTUP_JOB="@reboot '$EXECUTABLE_PATH' on-startup # $TASK_NAME - On Startup"
+
+# --- Update Crontab ---
+# Remove all old TempCleaner jobs first.
+CLEANED_CRONTAB=$(crontab -l 2>/dev/null | grep -Fv "# $TASK_NAME")
+
+# Add the new jobs.
+(echo "$CLEANED_CRONTAB" ; echo "$SCHEDULE_JOB" ; echo "$STARTUP_JOB") | crontab -
+
 if [ $? -eq 0 ]; then
-    echo "A TempCleaner job already exists in your crontab. It will be replaced."
-    # Remove the old job(s).
-    (crontab -l 2>/dev/null | grep -Fv "# $TASK_NAME" ; echo "$CRON_JOB") | crontab -
+    echo "SUCCESS: Scheduled and startup tasks have been configured in your crontab."
+    echo "You can manage them by running 'crontab -e'."
 else
-    # Add the new cron job.
-    (crontab -l 2>/dev/null ; echo "$CRON_JOB") | crontab -
-fi
-
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "SUCCESS: TempCleaner has been successfully scheduled to run every hour."
-    echo "A new entry has been added to your crontab. You can edit it by running 'crontab -e'."
-else
-    echo ""
     echo "ERROR: Failed to modify the crontab."
-    echo "Please check your permissions or try adding the job manually by running 'crontab -e'."
+    exit 1
 fi
+
+# --- 3. Instructions for Shutdown Task (for 'on_shutdown' triggers) ---
+echo ""
+echo "--- Manual instructions for Shutdown task ---"
+echo "To run a script on shutdown, the method depends on your system:"
+echo " - For systems using 'systemd', you can create a service in /etc/systemd/system/."
+echo " - For older systems, you might place a script in /etc/rc.d/rc.0/."
+echo "Automating this is complex and system-specific, so manual setup is recommended if needed."
+
+echo ""
+echo "=========================================="
+echo "Installation complete."
+echo "=========================================="

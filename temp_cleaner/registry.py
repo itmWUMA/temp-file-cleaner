@@ -1,5 +1,5 @@
 """
-Handles the registration and creation of Action and Filter objects.
+Handles the registration and creation of Action, Filter, and Trigger objects.
 This is the core of the Strategy and Factory patterns.
 """
 from typing import Dict, Type, Any
@@ -8,6 +8,10 @@ from typing import Dict, Type, Any
 from .actions import Action, TrashAction, DeleteAction
 from .filters import Filter, AgeFilter
 from .triggers import Trigger, ScheduleTrigger
+
+#--- Triggers ---
+# Note: on_startup and on_shutdown are "marker" triggers. They don't need a class.
+# Their logic is handled directly in the engine based on the config key.
 
 # The 'Registry' is a simple dictionary mapping config strings to classes.
 ACTION_REGISTRY: Dict[str, Type[Action]] = {
@@ -20,7 +24,10 @@ FILTER_REGISTRY: Dict[str, Type[Filter]] = {
 }
 
 TRIGGER_REGISTRY: Dict[str, Type[Trigger]] = {
-    'schedule': ScheduleTrigger,
+    "schedule": ScheduleTrigger,
+    # These are marker keys. They will be converted to simple string identifiers.
+    "on_startup": str,
+    "on_shutdown": str,
 }
 
 # The 'Factory' functions use the registry to create instances.
@@ -65,24 +72,37 @@ def create_filter(filter_config: Dict[str, Any]) -> Filter:
     # Pass the arguments to the constructor of the filter class.
     return FilterClass(filter_args)
 
-def create_trigger(trigger_config: Dict[str, Any]) -> Trigger:
+def create_trigger(trigger_config: Any) -> Trigger:
     """
-    Factory function to create a Trigger instance from its config dict.
+    Factory function to create a Trigger instance from its config.
+    It supports both dicts for complex triggers and simple strings for marker triggers.
 
     Args:
-        trigger_config: The config dict, e.g., {'schedule': '0 0 * * *'}.
+        trigger_config: The config, e.g., {'schedule': '0 0 * * *'} or 'on_startup'.
 
     Returns:
-        An instance of a concrete Trigger subclass.
+        An instance of a concrete Trigger subclass or a string for marker triggers.
     """
-    if not isinstance(trigger_config, dict) or len(trigger_config) != 1:
-        raise ValueError(f"Invalid trigger configuration format: {trigger_config}")
+    if isinstance(trigger_config, str):
+        trigger_type = trigger_config
+        value = None # No value for simple string triggers
+        if trigger_type not in TRIGGER_REGISTRY:
+             raise ValueError(f"Unknown trigger type: '{trigger_type}'")
+        return trigger_type # Return the string itself as the "trigger"
 
-    trigger_type, value = next(iter(trigger_config.items()))
+    if isinstance(trigger_config, dict):
+        if len(trigger_config) != 1:
+            raise ValueError(f"Invalid trigger configuration format: {trigger_config}")
+        
+        trigger_type, value = next(iter(trigger_config.items()))
+        TriggerClass = TRIGGER_REGISTRY.get(trigger_type)
+        
+        if not TriggerClass:
+            raise ValueError(f"Unknown trigger type: '{trigger_type}'")
 
-    TriggerClass = TRIGGER_REGISTRY.get(trigger_type)
-    if not TriggerClass:
-        raise ValueError(f"Unknown trigger type: {trigger_type}")
+        if TriggerClass is str: # Handle marker triggers defined as dicts, e.g., {'on_startup': True}
+            return trigger_type
 
-    # The value is passed as the argument to the trigger's __init__
-    return TriggerClass(value)
+        return TriggerClass(value)
+
+    raise ValueError(f"Unsupported trigger format: {trigger_config}")

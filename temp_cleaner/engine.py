@@ -67,25 +67,40 @@ class CleaningEngine:
             self._run_single_job(job)
 
     def run_scheduled_jobs(self):
+        """Checks and runs jobs with a 'schedule' trigger."""
+        print("Checking for scheduled jobs to run...")
+        now = datetime.now()
+        self._run_jobs_if_triggered(lambda trigger: hasattr(trigger, 'should_run') and trigger.should_run(now))
+
+    def run_startup_jobs(self):
+        """Runs jobs with an 'on_startup' trigger."""
+        print("Checking for startup jobs...")
+        self._run_jobs_if_triggered(lambda trigger: trigger == "on_startup")
+
+    def run_shutdown_jobs(self):
+        """Runs jobs with an 'on_shutdown' trigger."""
+        print("Checking for shutdown jobs...")
+        self._run_jobs_if_triggered(lambda trigger: trigger == "on_shutdown")
+
+    def _run_jobs_if_triggered(self, trigger_condition_func):
         """
-        Executes jobs that are due to run based on their 'schedule' trigger.
+        Generic internal method to run jobs if any of their triggers meet a condition.
+
+        Args:
+            trigger_condition_func: A function that takes a trigger and returns True or False.
         """
         if not self.config.jobs:
             print("No jobs found in configuration.")
             return
 
-        print("Checking for scheduled jobs to run...")
-        now = datetime.now()
-        
         for job in self.config.jobs:
             for trigger in job.triggers:
-                # We only care about triggers that implement should_run
-                if hasattr(trigger, 'should_run') and trigger.should_run(now):
-                    print(f"Trigger activated for job '{job.name}'.")
+                if trigger_condition_func(trigger):
+                    print(f"Trigger '{trigger}' activated for job '{job.name}'.")
                     self._run_single_job(job)
-                    # A job should only run once per check, even if it has multiple triggers.
+                    # A job should only run once per invocation.
                     break
-
+    
     def _run_single_job(self, job: models.Job):
         """Runs one specific cleaning job."""
         print(f"\n--- Running Job: {job.name} ---")
