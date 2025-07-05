@@ -7,6 +7,7 @@ from typing import Dict, Type, Any
 # Import concrete strategy classes
 from .actions import Action, TrashAction, DeleteAction
 from .filters import Filter, AgeFilter
+from .triggers import Trigger, ScheduleTrigger
 
 # The 'Registry' is a simple dictionary mapping config strings to classes.
 ACTION_REGISTRY: Dict[str, Type[Action]] = {
@@ -16,6 +17,10 @@ ACTION_REGISTRY: Dict[str, Type[Action]] = {
 
 FILTER_REGISTRY: Dict[str, Type[Filter]] = {
     'age': AgeFilter,
+}
+
+TRIGGER_REGISTRY: Dict[str, Type[Trigger]] = {
+    'schedule': ScheduleTrigger,
 }
 
 # The 'Factory' functions use the registry to create instances.
@@ -59,3 +64,25 @@ def create_filter(filter_config: Dict[str, Any]) -> Filter:
     
     # Pass the arguments to the constructor of the filter class.
     return FilterClass(filter_args)
+
+def create_trigger(trigger_config: Dict[str, Any]) -> Trigger:
+    """
+    Factory function to create a Trigger instance from its config dict.
+
+    Args:
+        trigger_config: The config dict, e.g., {'schedule': '0 0 * * *'}.
+
+    Returns:
+        An instance of a concrete Trigger subclass.
+    """
+    if not isinstance(trigger_config, dict) or len(trigger_config) != 1:
+        raise ValueError(f"Invalid trigger configuration format: {trigger_config}")
+
+    trigger_type, value = next(iter(trigger_config.items()))
+
+    TriggerClass = TRIGGER_REGISTRY.get(trigger_type)
+    if not TriggerClass:
+        raise ValueError(f"Unknown trigger type: {trigger_type}")
+
+    # The value is passed as the argument to the trigger's __init__
+    return TriggerClass(value)

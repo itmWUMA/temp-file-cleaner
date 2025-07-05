@@ -5,6 +5,7 @@ and executes actions.
 import yaml
 from pathlib import Path
 from typing import List
+from datetime import datetime
 
 from . import models
 from . import filesystem
@@ -31,13 +32,16 @@ def load_config(config_path: Path) -> models.Config:
         
         filters = [registry.create_filter(f) for f in other_filters_config]
 
+        raw_triggers = details.get('triggers', [])
+        triggers = [registry.create_trigger(t) for t in raw_triggers]
+
         job = models.Job(
             name=name,
             paths=details.get('paths', []),
             pattern=pattern_config['pattern'] if pattern_config else None,
             filters=filters,
             actions=actions,
-            triggers=details.get('triggers', [])
+            triggers=triggers
         )
         job_list.append(job)
     
@@ -61,6 +65,26 @@ class CleaningEngine:
         print(f"Found {len(self.config.jobs)} job(s) to process.")
         for job in self.config.jobs:
             self._run_single_job(job)
+
+    def run_scheduled_jobs(self):
+        """
+        Executes jobs that are due to run based on their 'schedule' trigger.
+        """
+        if not self.config.jobs:
+            print("No jobs found in configuration.")
+            return
+
+        print("Checking for scheduled jobs to run...")
+        now = datetime.now()
+        
+        for job in self.config.jobs:
+            for trigger in job.triggers:
+                # We only care about triggers that implement should_run
+                if hasattr(trigger, 'should_run') and trigger.should_run(now):
+                    print(f"Trigger activated for job '{job.name}'.")
+                    self._run_single_job(job)
+                    # A job should only run once per check, even if it has multiple triggers.
+                    break
 
     def _run_single_job(self, job: models.Job):
         """Runs one specific cleaning job."""

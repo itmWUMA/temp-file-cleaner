@@ -14,8 +14,8 @@ def main():
     
     parser.add_argument(
         "command",
-        choices=["run"],
-        help="The command to execute. Currently, only 'run' is supported."
+        choices=["run", "check-schedule"],
+        help="The command to execute: 'run' for manual execution, 'check-schedule' for scheduled tasks."
     )
     
     parser.add_argument(
@@ -33,22 +33,24 @@ def main():
     
     args = parser.parse_args()
     
-    if args.command == "run":
+    try:
         if not args.config.is_file():
             print(f"Error: Configuration file not found at '{args.config}'")
             return
 
-        try:
-            print(f"Loading configuration from: {args.config}")
-            config = load_config(args.config)
-            
-            engine = CleaningEngine(config, dry_run=args.dry_run)
+        print(f"Loading configuration from: {args.config}")
+        config = load_config(args.config)
+        engine = CleaningEngine(config, dry_run=args.dry_run)
+
+        if args.command == "run":
             engine.run_jobs()
-            
-            print("\nAll jobs completed.")
-            
-        except Exception as e:
-            print(f"\nAn error occurred: {e}")
+            print("\nAll manual jobs completed.")
+        elif args.command == "check-schedule":
+            engine.run_scheduled_jobs()
+            print("\nScheduled job check completed.")
+
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
 
 if __name__ == "__main__":
     main()
