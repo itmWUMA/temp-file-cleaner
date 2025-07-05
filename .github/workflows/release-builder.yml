@@ -71,15 +71,17 @@ jobs:
           cp ${{ matrix.INSTALL_SCRIPT }} release_package/
         shell: bash # 强制在所有平台使用 bash，简化脚本
 
-      # 步骤6: 将发布目录打包成 .zip 文件 (跨平台)
-      - name: Archive release artifacts
+      # 步骤 6a: 在 Windows 上进行压缩
+      - name: Archive release artifacts (Windows)
+        if: runner.os == 'Windows' # <-- 步骤级别的 if 条件
+        run: powershell -Command "Compress-Archive -Path ./release_package/* -DestinationPath ${{ matrix.ARCHIVE_NAME }}"
+
+      # 步骤 6b: 在 Linux 和 macOS 上进行压缩
+      - name: Archive release artifacts (Linux/macOS)
+        if: runner.os != 'Windows' # <-- 步骤级别的 if 条件
         run: |
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            powershell -Command "Compress-Archive -Path ./release_package/* -DestinationPath ${{ matrix.ARCHIVE_NAME }}"
-          else
-            cd release_package
-            zip -r ../${{ matrix.ARCHIVE_NAME }} .
-          fi
+          cd release_package
+          zip -r ../${{ matrix.ARCHIVE_NAME }} .
         shell: bash
 
       # 步骤7: 上传打包好的 .zip 文件到 Release
