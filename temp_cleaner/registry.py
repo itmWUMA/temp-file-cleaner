@@ -28,6 +28,7 @@ TRIGGER_REGISTRY: Dict[str, Type[Trigger]] = {
     # These are marker keys. They will be converted to simple string identifiers.
     "on_startup": str,
     "on_shutdown": str,
+    "manual": str,
 }
 
 # The 'Factory' functions use the registry to create instances.
