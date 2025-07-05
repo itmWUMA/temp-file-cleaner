@@ -1,0 +1,45 @@
+# config.yaml
+# TempCleaner 配置文件示例
+#
+# 本文件用于定义清理任务 (jobs)。
+# 每个任务都包含 'paths', 'filters', 'actions' 和 'triggers'。
+#
+# P0 阶段核心功能说明:
+# - paths: 定义要扫描的目录。支持 '~/Downloads' (主目录) 和环境变量.
+# - filters:
+#   - pattern: 使用 glob 模式匹配文件/目录名 (e.g., '*.log', '**/*.tmp').
+#   - age: 筛选超过指定时间的文件 (e.g., 'older_than: "30d"').
+# - actions:
+#   - trash: 移动到回收站 (推荐，更安全).
+#   - delete: 永久删除.
+# - triggers:
+#   - P0 阶段仅支持 manual (手动) 触发，所有任务都会在运行时执行。
+
+jobs:
+  # 任务一：清理超过30天的旧下载压缩包
+  cleanup_downloads:
+    paths:
+      - '~/Downloads'
+      # - '$TEMP/my-temp-folder' # 环境变量示例 (需要系统已设置)
+    filters:
+      - pattern: '**/*.zip'
+      - age: 'older_than: "30d"'
+    # P0 阶段不支持 size 过滤器
+    # - size: 'larger_than: "500MB"'
+    actions:
+      - trash
+    triggers:
+      - manual
+
+  # 任务二：清理开发项目中超过一周的构建产物
+  cleanup_dev_projects:
+    paths:
+      - '~/Documents/Projects' # 使用一个更通用的路径示例
+    filters:
+      # 同时匹配 Rust (target) 和 Java/Maven (target) 的构建目录
+      - pattern: '**/target'
+      - age: 'older_than: "7d"'
+    actions:
+      - delete
+    triggers:
+      - manual
