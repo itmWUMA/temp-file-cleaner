@@ -58,7 +58,7 @@ pip install -r requirements.txt
 pip install pyinstaller
 
 # 2. 使用 PyInstaller 打包成单文件可执行程序
-pyinstaller --onefile temp_cleaner/main.py --name tempcleaner
+pyinstaller --onefile temp_cleaner/run.py --name tempcleaner
 
 # 3. 打包完成后，可执行文件会出现在 dist 目录中
 ```
