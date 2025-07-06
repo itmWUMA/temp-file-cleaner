@@ -6,7 +6,7 @@ from typing import Dict, Type, Any
 
 # Import concrete strategy classes
 from .actions import Action, TrashAction, DeleteAction
-from .filters import Filter, AgeFilter
+from .filters import Filter, AgeFilter, SizeFilter
 from .triggers import Trigger, ScheduleTrigger
 
 #--- Triggers ---
@@ -21,6 +21,7 @@ ACTION_REGISTRY: Dict[str, Type[Action]] = {
 
 FILTER_REGISTRY: Dict[str, Type[Filter]] = {
     'age': AgeFilter,
+    'size': SizeFilter,
 }
 
 TRIGGER_REGISTRY: Dict[str, Type[Trigger]] = {
