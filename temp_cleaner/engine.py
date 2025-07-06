@@ -27,7 +27,11 @@ def load_config(config_path: Path) -> models.Config:
 
         # Separate pattern filter from other filters
         raw_filters = details.get('filters', [])
-        pattern_config = next((f for f in raw_filters if 'pattern' in f), None)
+        pattern_config = next((f for f in raw_filters if 'pattern' in f), {})
+        patterns = pattern_config.get('pattern', [])
+        if isinstance(patterns, str):
+            patterns = [patterns]  # Ensure it's always a list
+
         other_filters_config = [f for f in raw_filters if 'pattern' not in f]
         
         filters = [registry.create_filter(f) for f in other_filters_config]
@@ -38,7 +42,7 @@ def load_config(config_path: Path) -> models.Config:
         job = models.Job(
             name=name,
             paths=details.get('paths', []),
-            pattern=pattern_config['pattern'] if pattern_config else None,
+            patterns=patterns,
             filters=filters,
             actions=actions,
             triggers=triggers
@@ -126,17 +130,18 @@ class CleaningEngine:
         print(f"--- Job {job.name} Finished ---")
 
     def _find_initial_files(self, job: models.Job) -> List[Path]:
-        """Finds files based on `paths` and the primary `pattern` filter."""
-        if not job.pattern:
+        """Finds files based on `paths` and the primary `pattern` filters."""
+        if not job.patterns:
             print(f"Warning: Job '{job.name}' has no pattern filter. It will not match any files.")
             return []
         
         all_files = set()
         for path_str in job.paths:
             base_path = filesystem.resolve_path(path_str)
-            print(f"Scanning in '{base_path}' for pattern '{job.pattern}'...")
-            found = filesystem.find_files(base_path, job.pattern)
-            all_files.update(found)
+            for pattern in job.patterns:
+                print(f"Scanning in '{base_path}' for pattern '{pattern}'...")
+                found = filesystem.find_files(base_path, pattern)
+                all_files.update(found)
         
         return list(all_files)
 

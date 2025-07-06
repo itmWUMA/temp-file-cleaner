@@ -10,7 +10,11 @@ jobs:
     paths:
       - '~/Downloads'
     filters:
-      - pattern: '**/*.zip'
+      - pattern:
+          - '**/*.zip'
+          - '**/*.rar'
+          - '**/*.7z'
+          - '**/*.jpg'
     actions:
       # 移动到回收站以确保安全
       - trash: {}

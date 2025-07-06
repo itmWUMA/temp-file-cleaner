@@ -78,8 +78,10 @@ jobs:
       - '~/Downloads'  # 支持用户主目录
       - 'D:/Temp'      # 支持绝对路径
     filters:
-      - pattern: '**/*.zip'
-      - pattern: '**/*.rar'
+      - pattern: # pattern 现在可以接受单个字符串或字符串列表
+          - '**/*.zip'
+          - '**/*.rar'
+          - '**/*.7z' # 新增示例
       - age:
           older_than: "30d"  # d=天, h=小时, m=分钟
     actions:
@@ -94,9 +96,10 @@ jobs:
       - '~/Documents/Projects'
       - '/var/www/html' # Linux 路径示例
     filters:
-      - pattern: '**/target' # 匹配 Java/Rust 的 target 目录
-      - pattern: '**/build'  # 匹配 a.js/C++ 的 build 目录
-      - pattern: '**/node_modules'
+      - pattern: # 多个 pattern 可以合并为一个列表
+          - '**/target' # 匹配 Java/Rust 的 target 目录
+          - '**/build'  # 匹配 a.js/C++ 的 build 目录
+          - '**/node_modules'
       - age:
           older_than: "7d"
     actions:
@@ -109,7 +112,7 @@ jobs:
     paths:
       - '$APPDATA/MyLogDir' # 支持环境变量
     filters:
-      - pattern: '**/*.log'
+      - pattern: '**/*.log' # 单个 pattern 仍然支持
     actions:
       - trash: {}
     triggers:
@@ -125,6 +128,8 @@ jobs:
 
 - **`filters`**: 一个列表，定义了筛选文件的规则，文件必须 **同时满足所有** 过滤器才会被处理。
     - `pattern`: 使用 [glob](https://en.wikipedia.org/wiki/Glob_(programming)) 模式匹配文件名或路径。
+        - 可以是单个字符串 (e.g., `pattern: '**/*.log'`)。
+        - 也可以是字符串列表 (e.g., `pattern: ['**/*.tmp', '**/*.bak']`)，表示匹配其中任意一个模式。
         - `*.log`: 匹配当前目录下的所有 .log 文件。
         - `**/*.tmp`: 递归匹配所有子目录下的 .tmp 文件。
     - `age`: 根据文件的最后修改时间进行筛选。

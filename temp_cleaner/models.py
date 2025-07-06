@@ -16,7 +16,7 @@ class Job:
     """
     name: str
     paths: List[str]
-    pattern: Optional[str]  # The primary pattern filter is treated specially
+    patterns: List[str]     # The primary pattern filters are treated specially
     filters: List[Filter]   # List of secondary filter objects (e.g., AgeFilter)
     actions: List[Action]   # List of action objects (e.g., TrashAction)
     triggers: List[Trigger]   # List of trigger objects (e.g., ScheduleTrigger)
